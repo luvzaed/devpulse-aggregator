@@ -3,16 +3,20 @@ import aiohttp
 from abc import ABC, abstractmethod
 from functools import wraps
 from models import Article
+from config import TOPIC_TAG, ITEMS_PER_SOURCE, MAX_RETRIES, RETRY_DELAY
+
 
 # --- CUSTOM EXCEPTIONS ---
 class AggregatorError(Exception):
     pass
 
+
 class APIFetchError(AggregatorError):
     pass
 
+
 # --- RETRY DECORATOR ---
-def retry(max_retries=3, delay=1):
+def retry(max_retries=MAX_RETRIES, delay=RETRY_DELAY):
     def decorator(func):
         @wraps(func)
         async def wrapper(*args, **kwargs):
@@ -27,6 +31,7 @@ def retry(max_retries=3, delay=1):
         return wrapper
     return decorator
 
+
 # --- BASE FETCHER ---
 class BaseFetcher(ABC):
     def __init__(self, source_name: str):
@@ -36,12 +41,13 @@ class BaseFetcher(ABC):
     async def fetch(self) -> list[Article]:
         pass
 
+
 class GitHubFetcher(BaseFetcher):
     def __init__(self):
         super().__init__(source_name="GitHub")
-        self.url = "https://api.github.com/search/repositories?q=language:python&sort=stars&order=desc"
+        self.url = f"https://api.github.com/search/repositories?q=language:{TOPIC_TAG}&sort=stars&order=desc&per_page={ITEMS_PER_SOURCE}"
 
-    @retry(max_retries=2, delay=1)
+    @retry()
     async def fetch(self) -> list[Article]:
         print("Starting GitHub fetch...")
         async with aiohttp.ClientSession() as session:
@@ -51,23 +57,25 @@ class GitHubFetcher(BaseFetcher):
                 payload = await response.json()
                 
                 articles = []
-                for item in payload.get("items", [])[:3]:
+                for item in payload.get("items", [])[:ITEMS_PER_SOURCE]:
                     articles.append(Article(
                         source=self.source_name,
                         title=item.get("name", "Unknown"),
                         url=item.get("html_url", ""),
                         author=item.get("owner", {}).get("login", "Unknown"),
-                        score=item.get("stargazers_count", 0)
+                        score=item.get("stargazers_count", 0),
+                        snippet=item.get("description") or "No description available.",
                     ))
                 print("Finished GitHub fetch!")
                 return articles
 
+
 class DevToFetcher(BaseFetcher):
     def __init__(self):
         super().__init__(source_name="Dev.to")
-        self.url = "https://dev.to/api/articles?tag=python&per_page=3"
+        self.url = f"https://dev.to/api/articles?tag={TOPIC_TAG}&per_page={ITEMS_PER_SOURCE}"
 
-    @retry(max_retries=2, delay=1)
+    @retry()
     async def fetch(self) -> list[Article]:
         print("Starting Dev.to fetch...")
         async with aiohttp.ClientSession() as session:
@@ -82,7 +90,8 @@ class DevToFetcher(BaseFetcher):
                         title=item.get("title", "Unknown"),
                         url=item.get("url", ""),
                         author=item.get("user", {}).get("username", "Unknown"),
-                        score=item.get("positive_reactions_count", 0)
+                        score=item.get("positive_reactions_count", 0),
+                        snippet=item.get("description") or "No description available.",
                     ))
                 print("Finished Dev.to fetch!")
                 return articles

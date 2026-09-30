@@ -1,11 +1,12 @@
 import sqlite3
 from models import Article
+from config import DB_PATH
+
 
 class DatabaseConnection:
     """A context manager for SQLite database connections."""
-    def __init__(self, db_name: str = "trending_feed.db"):
-        # We save the database up one level in the root folder, not inside src/
-        self.db_name = f"../{db_name}" 
+    def __init__(self, db_name: str = str(DB_PATH)):
+        self.db_name = str(db_name)
         self.conn = None
 
     def __enter__(self):
@@ -18,10 +19,10 @@ class DatabaseConnection:
         if self.conn:
             if exc_type is None:
                 self.conn.commit()
-                print(f"[Database] Transaction committed and connection closed.")
+                print("[Database] Transaction committed and connection closed.")
             else:
                 self.conn.rollback()
-                print(f"[Database] Error detected. Transaction rolled back.")
+                print("[Database] Error detected. Transaction rolled back.")
             self.conn.close()
         return False
 
@@ -47,18 +48,19 @@ class DatabaseConnection:
         self.conn.execute(query, (article.source, article.title, article.url, article.author, article.score))
 
 
-def stream_db_data(db_name: str = "trending_feed.db"):
-    """A generator that reads from SQLite and yields one row at a time."""
-    db_path = f"../{db_name}"
-    print(f"\n[Generator] Starting data stream from {db_path}...")
+def stream_db_data(db_name: str = str(DB_PATH)):
+    """A generator that reads from SQLite and yields one Article object at a time."""
+    db_path = str(db_name)
+    print(f"\n[Generator] Streaming articles from {db_path}...")
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
-    cursor.execute("SELECT source, title, author FROM trending_articles")
+    cursor.execute("SELECT source, title, url, author, score FROM trending_articles")
     
     while True:
         row = cursor.fetchone()
         if row is None:
             break
-        yield row
+        source, title, url, author, score = row
+        yield Article(source=source, title=title, url=url, author=author, score=score)
         
     conn.close()
