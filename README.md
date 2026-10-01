@@ -41,7 +41,7 @@ devpulse-aggregator/
 ### 1. Clone & Set Up Environment
 
 ```bash
-git clone [https://github.com/YOUR_USERNAME/devpulse-aggregator.git](https://github.com/luvzaed/devpulse-aggregator.git)
+git clone https://github.com/luvzaed/devpulse-aggregator.git
 cd devpulse-aggregator
 python -m venv venv
 venv\Scripts\activate
@@ -68,8 +68,10 @@ pytest
 
 ## Automated Local Scheduling (Windows)
 
-To run the aggregator automatically every morning at 8:00 AM via Windows Task Scheduler:
+To run the aggregator automatically every morning at 8:00 AM via Windows Task Scheduler, run this command in PowerShell from the project root (`$PWD` automatically resolves to your current directory):
 
 ```powershell
-schtasks /create /tn "DevPulseMorningDigest" /tr "C:\path\to\devpulse-aggregator\run_digest.bat" /sc daily /st 08:00 /f
+schtasks /create /tn "DevPulseMorningDigest" /tr "$PWD\run_digest.bat" /sc daily /st 08:00 /f
 ```
+
+_(Note: If running from outside the project root, replace `$PWD\run_digest.bat` with your actual full project path, e.g., `"C:\path\to\your\devpulse-aggregator\run_digest.bat"`.)_
